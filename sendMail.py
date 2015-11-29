@@ -1,27 +1,43 @@
-class AddressDetails(object):
-    def __init__(self, toaddr, fromaddr, password, smtp, port):
-        self.toaddr = toaddr
-        self.fromaddr = fromaddr
-        self.pw = password
-        self.smtp = smtp
-        self.port = port
-
-
-def sendMail(subject, body, addrInfo):
-
-    import smtplib
-    from email.MIMEMultipart import MIMEMultipart
-    from email.MIMEText import MIMEText
+import time, threading
+import smtplib
+from smtplib import SMTPAuthenticationError
+  
+def create_thread(user, pwd, recipient, subject, body, wait):
+    threadObj = threading.Thread(target=send_email, args=[user, pwd, recipient, subject, body, wait])
+    threadObj.start()
     
-    msg = MIMEMultipart()
-    msg['From'] = addrInfo.fromaddr
-    msg['To'] = addrInfo.toaddr
-    msg['Subject'] = subject
-    msg.attach(MIMEText(body, 'plain'))
+
+def send_email(user, pwd, recipient, subject, body, wait):
+    delayTime = time.time() + wait 
+    while delayTime > time.time():
+        print int(delayTime - time.time())
+        time.sleep(0.1)
+                
+    gmail_user = user
+    gmail_pwd = pwd
+    FROM = user
+    TO = recipient if type(recipient) is list else [recipient]
+    SUBJECT = subject
+    TEXT = body
     
-    server = smtplib.SMTP(addrInfo.smtp, addrInfo.port)
-    server.starttls() # secure connection
-    server.login(addrInfo.fromaddr, addrInfo.pw)
-    text = msg.as_string()
-    server.sendmail(addrInfo.fromaddr, addrInfo.toaddr, text)
-    server.quit()
+    # Prepare actual message
+    message = """\From: %s\nTo: %s\nSubject: %s\n\n%s
+    """ % (FROM, ", ".join(TO), SUBJECT, TEXT)
+    #connect to the host(Google)
+    try:
+        server = smtplib.SMTP("smtp.gmail.com", 587)
+    except smtplib.socket.gaierror:
+        print "couldn't connect to server"
+    
+    server.ehlo()
+    server.starttls()
+    
+    #Login with email and pw
+    try:
+        server.login(gmail_user, gmail_pwd)
+    except SMTPAuthenticationError:
+        print "authentication error"
+    
+    server.sendmail(FROM, TO, message)
+    server.close()
+    print 'successfully sent the mail'
